@@ -1,0 +1,8 @@
+{
+  "deploy_dir" : "/",
+  "src" : "app",
+  "lib" : {
+    "REQUIREJS" : "//cdnjs.cloudflare.com/ajax/libs/require.js/2.1.18/require.min.js"
+  },
+  "prod" : false
+}

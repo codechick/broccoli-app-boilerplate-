@@ -20,7 +20,9 @@ var sass_file_exists = false;
  */
 var root_files;
 // merging all the trees that need a configuration replacement
+// this is done in order to take advantage of the plugin's cache that will keep the same as much as possible
 var tree_with_conf;
+var require_conf;
 
 //building result
 var js;
@@ -33,6 +35,12 @@ var main_files;
 root_files = funnel(src, {
     files : ['init.js', 'index.html']
 });
+
+require_conf = funnel('conf', {
+    files: ['require-js-conf.js']
+});
+
+root_files = mergeTrees([root_files, require_conf]);
 
 tree_with_conf = mergeTrees([root_files, src+'/src']);
 tree_with_conf = new replace(tree_with_conf, {
@@ -61,15 +69,24 @@ tree_with_conf = new replace(tree_with_conf, {
         {
             match: /\{\{JS_INIT}\}/g,
             replacement: function() { return 'init.js'; }
+        },
+        {
+            match: /\{\{AUTHOR}\}/g,
+            replacement: function() { return pkg.author; }
+        },
+        {
+            match: /\{\{APP_DESC}\}/g,
+            replacement: function() { return pkg.description; }
         }
     ]
 });
 
 js = funnel(tree_with_conf, {srcDir: '/js'});
 main_files = funnel(tree_with_conf, {
-    files: ['index.html', 'init.js'],
+    files: ['index.html', 'init.js', 'require-js-conf.js'],
     destDir: conf.deploy_dir
 });
+
 
 /**
  * JS
@@ -109,26 +126,32 @@ js = concat(js, {
     outputFile: conf.deploy_dir + '/' + pkg.name + '.js'
 });
 
-if(conf.prod)
-    js = uglifyJs(js);
-
 /**
  * STYLES
  */
 try {
-    var stats = fs.lstatSync(src + '/styles/main.scss');
+    var stats = fs.lstatSync(src + '/src/sass/main.scss');
 
-    if (stats.isDirectory()) {
+    if (stats.isFile()) {
         sass_file_exists = true;
     }
 }
 catch (e) {}
 
-if(sass_file_exists)
-    css = compileSass([src], '/styles/main.scss', conf.deploy_dir + '/' + pkg.name + '.css');
+if(sass_file_exists) {
+    var opts = {outputStyle: 'expanded'};
+    if(conf.prod)
+        opts.outputStyle = 'compressed';
+
+    css = compileSass([src + '/src'], '/sass/main.scss', conf.deploy_dir + '/' + pkg.name + '.css', opts);
+}
 else
     css = funnel(src, {
         files: []
     });
+
+if(conf.prod) {
+    js = uglifyJs(js);
+}
 
 module.exports = mergeTrees([css, js, main_files]);
